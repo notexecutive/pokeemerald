@@ -232,7 +232,8 @@ static bool8 TryDoInfoScreenScroll(void);
 static u8 ClearMonSprites(void);
 static u16 GetPokemonSpriteToDisplay(u16);
 static u32 CreatePokedexMonSprite(u16, s16, s16);
-static void CreateStatBars(u32 species);
+static void TryDestroyStatBars(void);
+static void CreateStatBars(struct PokedexListItem *dexMon);
 static void SpriteCB_MoveMonForInfoScreen(struct Sprite *sprite);
 static void SpriteCB_Scrollbar(struct Sprite *sprite);
 static void SpriteCB_ScrollArrow(struct Sprite *sprite);
@@ -1647,6 +1648,7 @@ static void Task_HandlePokedexInput(u8 taskId)
             gSprites[sPokedexView->selectedMonSpriteId].callback = SpriteCB_MoveMonForInfoScreen;
             gTasks[taskId].func = Task_OpenInfoScreenAfterMonMovement;
             PlaySE(SE_PIN);
+            TryDestroyStatBars();
             FreeWindowAndBgBuffers();
         }
         else if (gMain.newKeys & START_BUTTON)
@@ -1784,6 +1786,7 @@ static void Task_WaitForExitSearch(u8 taskId)
     if (!gTasks[gTasks[taskId].tTaskId].isActive)
     {
         ClearMonSprites();
+        TryDestroyStatBars();
 
         // Search produced results
         if (sPokedexView->screenSwitchState != 0)
@@ -1815,6 +1818,7 @@ static void Task_ClosePokedex(u8 taskId)
             gSaveBlock2Ptr->pokedex.mode = DEX_MODE_HOENN;
         gSaveBlock2Ptr->pokedex.order = sPokedexView->dexOrder;
         ClearMonSprites();
+        TryDestroyStatBars();
         FreeWindowAndBgBuffers();
         DestroyTask(taskId);
         SetMainCallback2(CB2_ReturnToFieldWithOpenMenu);
@@ -1992,6 +1996,7 @@ static void Task_ReturnToPokedexFromSearchResults(u8 taskId)
         sPokedexView->dexOrder = sPokedexView->dexOrderBackup;
         gTasks[taskId].func = Task_OpenPokedexMainPage;
         ClearMonSprites();
+        TryDestroyStatBars();
         FreeWindowAndBgBuffers();
     }
 }
@@ -2064,6 +2069,7 @@ static bool8 LoadPokedexListPage(u8 page)
         if (page == PAGE_MAIN)
             CreatePokedexList(sPokedexView->dexMode, sPokedexView->dexOrder);
         CreateMonSpritesAtPos(sPokedexView->selectedPokemon, 0xE);
+        CreateStatBars(&sPokedexView->pokedexList[sPokedexView->selectedPokemon]);
         sPokedexView->menuIsOpen = FALSE;
         sPokedexView->menuY = 0;
         CopyBgTilemapBufferToVram(0);
@@ -2565,7 +2571,7 @@ static u16 TryDoPokedexScroll(u16 selectedMon, u16 ignored)
         selectedMon = GetNextPosition(1, selectedMon, 0, sPokedexView->pokemonListCount - 1);
         CreateScrollingPokemonSprite(1, selectedMon);
         CreateMonListEntry(1, selectedMon, ignored);
-        CreateStatBars(NationalPokedexNumToSpecies(sPokedexView->pokedexList[selectedMon].dexNum));
+        CreateStatBars(&sPokedexView->pokedexList[selectedMon]);
         PlaySE(SE_Z_SCROLL);
     }
     else if ((gMain.heldKeys & DPAD_DOWN) && (selectedMon < sPokedexView->pokemonListCount - 1))
@@ -2574,7 +2580,7 @@ static u16 TryDoPokedexScroll(u16 selectedMon, u16 ignored)
         selectedMon = GetNextPosition(0, selectedMon, 0, sPokedexView->pokemonListCount - 1);
         CreateScrollingPokemonSprite(2, selectedMon);
         CreateMonListEntry(2, selectedMon, ignored);
-        CreateStatBars(NationalPokedexNumToSpecies(sPokedexView->pokedexList[selectedMon].dexNum));
+        CreateStatBars(&sPokedexView->pokedexList[selectedMon]);
         PlaySE(SE_Z_SCROLL);
     }
     else if ((gMain.newKeys & DPAD_LEFT) && (selectedMon > 0))
@@ -2586,7 +2592,7 @@ static u16 TryDoPokedexScroll(u16 selectedMon, u16 ignored)
         sPokedexView->pokeBallRotation += 16 * (selectedMon - startingPos);
         ClearMonSprites();
         CreateMonSpritesAtPos(selectedMon, 0xE);
-        CreateStatBars(NationalPokedexNumToSpecies(sPokedexView->pokedexList[selectedMon].dexNum));
+        CreateStatBars(&sPokedexView->pokedexList[selectedMon]);
         PlaySE(SE_Z_PAGE);
     }
     else if ((gMain.newKeys & DPAD_RIGHT) && (selectedMon < sPokedexView->pokemonListCount - 1))
@@ -2597,7 +2603,7 @@ static u16 TryDoPokedexScroll(u16 selectedMon, u16 ignored)
         sPokedexView->pokeBallRotation += 16 * (selectedMon - startingPos);
         ClearMonSprites();
         CreateMonSpritesAtPos(selectedMon, 0xE);
-        CreateStatBars(NationalPokedexNumToSpecies(sPokedexView->pokedexList[selectedMon].dexNum));
+        CreateStatBars(&sPokedexView->pokedexList[selectedMon]);
         PlaySE(SE_Z_PAGE);
     }
 
@@ -2824,41 +2830,55 @@ static const u8 sBaseStatOffsets[] =
     offsetof(struct BaseStats, baseSpeed),
 };
 
-static void CreateStatBars(u32 species)
+static void TryDestroyStatBars(void)
 {
-    u32 i, width, statValue;
-    u8 *gfx = Alloc(64 * 64);
-    static const u8 sBarsYOffset[] = {3, 13, 23, 32, 42, 52};
-    struct SpriteSheet sheet = {gfx, 64 * 64, TAG_STAT_BAR};
-
     if (sPokedexView->statBarsSpriteId != 0 && sPokedexView->statBarsSpriteId < MAX_SPRITES)
     {
         FreeSpriteTilesByTag(TAG_STAT_BAR);
         DestroySprite(&gSprites[sPokedexView->statBarsSpriteId]);
     }
+}
 
-    memcpy(gfx, sStatBarsGfx, sizeof(sStatBarsGfx));
+static void CreateStatBars(struct PokedexListItem *dexMon)
+{
+    TryDestroyStatBars();
 
-    for (i = 0; i < NUM_STATS; i++)
+    if (dexMon->owned) // Show filed bars
     {
-        statValue = *((u8*)(&gBaseStats[species]) + sBaseStatOffsets[i]);
-        if (statValue <= 100)
-            width = statValue / 3;
-        else
-            width = (100 / 3) + ((statValue - 100) / 11);
+        u32 i, width, statValue;
+        u8 *gfx = Alloc(64 * 64);
+        static const u8 sBarsYOffset[] = {3, 13, 23, 32, 42, 52};
+        struct SpriteSheet sheet = {gfx, 64 * 64, TAG_STAT_BAR};
+        u32 species = NationalPokedexNumToSpecies(dexMon->dexNum);
 
-        if (width > 42) // Max pixels
-            width = 42;
-        if (width < 3)
-            width = 3;
+        memcpy(gfx, sStatBarsGfx, sizeof(sStatBarsGfx));
+        for (i = 0; i < NUM_STATS; i++)
+        {
+            statValue = *((u8*)(&gBaseStats[species]) + sBaseStatOffsets[i]);
+            if (statValue <= 100)
+                width = statValue / 3;
+            else
+                width = (100 / 3) + ((statValue - 100) / 11);
 
-        CreateStatBar(gfx, sBarsYOffset[i], width);
+            if (width > 42) // Max pixels
+                width = 42;
+            if (width < 3)
+                width = 3;
+
+            CreateStatBar(gfx, sBarsYOffset[i], width);
+        }
+
+        LoadSpriteSheet(&sheet);
+        sPokedexView->statBarsSpriteId = CreateSpriteAtEnd(&sStatBarSpriteTemplate, 36, 80, 0);
+        free(gfx);
     }
+    else if (dexMon->seen) // Just HP/ATK/DEF
+    {
+        static const struct SpriteSheet sheet = {sStatBarsGfx, 64 * 64, TAG_STAT_BAR};
 
-    LoadSpriteSheet(&sheet);
-    sPokedexView->statBarsSpriteId = CreateSpriteAtEnd(&sStatBarSpriteTemplate, 36, 80, 0);
-
-    free(gfx);
+        LoadSpriteSheet(&sheet);
+        sPokedexView->statBarsSpriteId = CreateSpriteAtEnd(&sStatBarSpriteTemplate, 36, 80, 0);
+    }
 }
 
 static void SpriteCB_EndMoveMonForInfoScreen(struct Sprite *sprite)
