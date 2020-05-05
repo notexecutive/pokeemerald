@@ -232,15 +232,15 @@ static bool8 TryDoInfoScreenScroll(void);
 static u8 ClearMonSprites(void);
 static u16 GetPokemonSpriteToDisplay(u16);
 static u32 CreatePokedexMonSprite(u16, s16, s16);
+static void CreateInterfaceSprites(u8 page);
+static void LoadInterfaceSheets(void);
 static void TryDestroyStatBars(void);
 static void CreateStatBars(struct PokedexListItem *dexMon);
-static void SpriteCB_MoveMonForInfoScreen(struct Sprite *sprite);
+static void SpriteCB_Interface(struct Sprite *sprite);
+static void SpriteCB_StatBars(struct Sprite *sprite);
 static void SpriteCB_Scrollbar(struct Sprite *sprite);
 static void SpriteCB_ScrollArrow(struct Sprite *sprite);
-static void SpriteCB_DexListInterfaceText(struct Sprite *sprite);
-static void SpriteCB_RotatingPokeBall(struct Sprite *sprite);
-static void SpriteCB_SeenOwnInfo(struct Sprite *sprite);
-static void SpriteCB_DexListStartMenuCursor(struct Sprite *sprite);
+static void SpriteCB_MoveMonForInfoScreen(struct Sprite *sprite);
 static void SpriteCB_PokedexListMonSprite(struct Sprite *sprite);
 static u8 LoadInfoScreen(struct PokedexListItem*, u8 monSpriteId);
 static bool8 IsInfoScreenScrolling(u8);
@@ -305,368 +305,6 @@ static void ClearSearchParameterBoxText(void);
 
 // const rom data
 #include "data/pokemon/pokedex_orders.h"
-
-static const struct OamData sOamData_ScrollBar =
-{
-    .y = 160,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = 0,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(8x8),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(8x8),
-    .tileNum = 0,
-    .priority = 1,
-    .paletteNum = 0,
-    .affineParam = 0
-};
-
-static const struct OamData sOamData_ScrollArrow =
-{
-    .y = 160,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = 0,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(16x8),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(16x8),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0
-};
-
-static const struct OamData sOamData_InterfaceText =
-{
-    .y = 160,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = 0,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(32x16),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(32x16),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0
-};
-
-static const struct OamData sOamData_RotatingPokeBall =
-{
-    .y = 160,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_WINDOW,
-    .mosaic = 0,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(32x32),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(32x32),
-    .tileNum = 0,
-    .priority = 1,
-    .paletteNum = 0,
-    .affineParam = 0
-};
-
-static const struct OamData sOamData_SeenOwnText =
-{
-    .y = 160,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = 0,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(64x32),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(64x32),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0
-};
-
-static const struct OamData sOamData_Dex8x16 =
-{
-    .y = 160,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = 0,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(8x16),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(8x16),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0
-};
-
-static const union AnimCmd sSpriteAnim_ScrollBar[] =
-{
-    ANIMCMD_FRAME(3, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_ScrollArrow[] =
-{
-    ANIMCMD_FRAME(1, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_RotatingPokeBall[] =
-{
-    ANIMCMD_FRAME(16, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_StartButton[] =
-{
-    ANIMCMD_FRAME(48, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_SearchText[] =
-{
-    ANIMCMD_FRAME(40, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_SelectButton[] =
-{
-    ANIMCMD_FRAME(32, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_MenuText[] =
-{
-    ANIMCMD_FRAME(56, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_SeenText[] =
-{
-    ANIMCMD_FRAME(64, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_OwnText[] =
-{
-    ANIMCMD_FRAME(96, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennText[] =
-{
-    ANIMCMD_FRAME(160, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalText[] =
-{
-    ANIMCMD_FRAME(168, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit0[] =
-{
-    ANIMCMD_FRAME(128, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit1[] =
-{
-    ANIMCMD_FRAME(130, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit2[] =
-{
-    ANIMCMD_FRAME(132, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit3[] =
-{
-    ANIMCMD_FRAME(134, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit4[] =
-{
-    ANIMCMD_FRAME(136, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit5[] =
-{
-    ANIMCMD_FRAME(138, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit6[] =
-{
-    ANIMCMD_FRAME(140, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit7[] =
-{
-    ANIMCMD_FRAME(142, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit8[] =
-{
-    ANIMCMD_FRAME(144, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_HoennSeenOwnDigit9[] =
-{
-    ANIMCMD_FRAME(146, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit0[] =
-{
-    ANIMCMD_FRAME(176, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit1[] =
-{
-    ANIMCMD_FRAME(178, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit2[] =
-{
-    ANIMCMD_FRAME(180, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit3[] =
-{
-    ANIMCMD_FRAME(182, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit4[] =
-{
-    ANIMCMD_FRAME(184, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit5[] =
-{
-    ANIMCMD_FRAME(186, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit6[] =
-{
-    ANIMCMD_FRAME(188, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit7[] =
-{
-    ANIMCMD_FRAME(190, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit8[] =
-{
-    ANIMCMD_FRAME(192, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_NationalSeenOwnDigit9[] =
-{
-    ANIMCMD_FRAME(194, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd sSpriteAnim_DexListStartMenuCursor[] =
-{
-    ANIMCMD_FRAME(4, 30),
-    ANIMCMD_END
-};
-
-static const union AnimCmd *const sSpriteAnimTable_ScrollBar[] =
-{
-    sSpriteAnim_ScrollBar
-};
-
-static const union AnimCmd *const sSpriteAnimTable_ScrollArrow[] =
-{
-    sSpriteAnim_ScrollArrow
-};
-
-static const union AnimCmd *const sSpriteAnimTable_RotatingPokeBall[] =
-{
-    sSpriteAnim_RotatingPokeBall
-};
-
-static const union AnimCmd *const sSpriteAnimTable_InterfaceText[] =
-{
-    sSpriteAnim_StartButton,
-    sSpriteAnim_SearchText,
-    sSpriteAnim_SelectButton,
-    sSpriteAnim_MenuText
-};
-
-static const union AnimCmd *const sSpriteAnimTable_SeenOwnText[] =
-{
-    sSpriteAnim_SeenText,
-    sSpriteAnim_OwnText
-};
-
-static const union AnimCmd *const sSpriteAnimTable_HoennNationalText[] =
-{
-    sSpriteAnim_HoennText,
-    sSpriteAnim_NationalText
-};
-
-static const union AnimCmd *const sSpriteAnimTable_HoennSeenOwnNumber[] =
-{
-    sSpriteAnim_HoennSeenOwnDigit0,
-    sSpriteAnim_HoennSeenOwnDigit1,
-    sSpriteAnim_HoennSeenOwnDigit2,
-    sSpriteAnim_HoennSeenOwnDigit3,
-    sSpriteAnim_HoennSeenOwnDigit4,
-    sSpriteAnim_HoennSeenOwnDigit5,
-    sSpriteAnim_HoennSeenOwnDigit6,
-    sSpriteAnim_HoennSeenOwnDigit7,
-    sSpriteAnim_HoennSeenOwnDigit8,
-    sSpriteAnim_HoennSeenOwnDigit9
-};
-
-static const union AnimCmd *const sSpriteAnimTable_NationalSeenOwnNumber[] =
-{
-    sSpriteAnim_NationalSeenOwnDigit0,
-    sSpriteAnim_NationalSeenOwnDigit1,
-    sSpriteAnim_NationalSeenOwnDigit2,
-    sSpriteAnim_NationalSeenOwnDigit3,
-    sSpriteAnim_NationalSeenOwnDigit4,
-    sSpriteAnim_NationalSeenOwnDigit5,
-    sSpriteAnim_NationalSeenOwnDigit6,
-    sSpriteAnim_NationalSeenOwnDigit7,
-    sSpriteAnim_NationalSeenOwnDigit8,
-    sSpriteAnim_NationalSeenOwnDigit9
-};
-
-static const union AnimCmd *const sSpriteAnimTable_DexListStartMenuCursor[] =
-{
-    sSpriteAnim_DexListStartMenuCursor
-};
 
 // By scroll speed. Last element of each unused
 static const u8 sScrollMonIncrements[] = {4, 8, 16, 32, 32};
@@ -1385,24 +1023,252 @@ static const struct WindowTemplate sSearchMenu_WindowTemplate[] =
     DUMMY_WIN_TEMPLATE
 };
 
+#define TAG_DEX_INTERFACE1 4100 // A button, B button,arrows
+#define TAG_DEX_INTERFACE2 4101 //
+#define TAG_DEX_INTERFACE3 4102 //
+#define TAG_DEX_INTERFACE_PAL 4096 //
+
+static const u32 sPokedexInterface1_Gfx[] = INCBIN_U32("graphics/pokedex/interface_1.4bpp.lz");
+static const u32 sPokedexInterface2_Gfx[] = INCBIN_U32("graphics/pokedex/interface_2.4bpp.lz");
+static const u32 sPokedexInterface3_Gfx[] = INCBIN_U32("graphics/pokedex/interface_3.4bpp.lz");
+static const u16 sPokedexInterface_Pal[] = INCBIN_U16("graphics/pokedex/interface.gbapal");
+
+static const struct CompressedSpriteSheet sInterfaceSpriteSheets[] =
+{
+    // For some reason it doesn't load the first tile, so I load an empty one as a hack
+    {gBlankGfxCompressed, 0x20, 9999},
+    {sPokedexInterface2_Gfx, 0x600, TAG_DEX_INTERFACE2},
+    {sPokedexInterface1_Gfx, 0x200, TAG_DEX_INTERFACE1},
+    {sPokedexInterface3_Gfx, 0x280, TAG_DEX_INTERFACE3},
+};
+static const struct SpritePalette sInterfaceSpritePalette = {sPokedexInterface_Pal, TAG_DEX_INTERFACE_PAL};
+
+static const struct OamData sOamData_InterfaceIcon =
+{
+    .y = 0,
+    .affineMode = ST_OAM_AFFINE_OFF,
+    .objMode = ST_OAM_OBJ_NORMAL,
+    .bpp = ST_OAM_4BPP,
+    .shape = SPRITE_SHAPE(16x16),
+    .size = SPRITE_SIZE(16x16),
+};
+
+static const union AnimCmd sSpriteAnim_ALetter[] =
+{
+    ANIMCMD_FRAME(0, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_BLetter[] =
+{
+    ANIMCMD_FRAME(4, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_ScrollArrow[] =
+{
+    ANIMCMD_FRAME(8, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_ScrollBar[] =
+{
+    ANIMCMD_FRAME(12, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd *const sSpriteAnimTable_Icons[] =
+{
+    sSpriteAnim_ALetter,
+    sSpriteAnim_BLetter,
+    sSpriteAnim_ScrollArrow,
+    sSpriteAnim_ScrollBar,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_InterfaceIcon =
+{
+    .tileTag = TAG_DEX_INTERFACE1,
+    .paletteTag = TAG_DEX_INTERFACE_PAL,
+    .oam = &sOamData_InterfaceIcon,
+    .anims = sSpriteAnimTable_Icons,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCB_Interface,
+};
+
+static const struct OamData sOamData_InterfaceText =
+{
+    .y = 0,
+    .affineMode = ST_OAM_AFFINE_OFF,
+    .objMode = ST_OAM_OBJ_NORMAL,
+    .bpp = ST_OAM_4BPP,
+    .shape = SPRITE_SHAPE(32x16),
+    .size = SPRITE_SIZE(32x16),
+};
+
+static const union AnimCmd sSpriteAnim_Data[] =
+{
+    ANIMCMD_FRAME(0, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_Back[] =
+{
+    ANIMCMD_FRAME(8, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_Seen1[] =
+{
+    ANIMCMD_FRAME(16, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_Seen2[] =
+{
+    ANIMCMD_FRAME(24, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_Caught1[] =
+{
+    ANIMCMD_FRAME(32, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_Caught2[] =
+{
+    ANIMCMD_FRAME(40, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd *const sSpriteAnimTable_InterfaceText[] =
+{
+    sSpriteAnim_Data,
+    sSpriteAnim_Back,
+    sSpriteAnim_Seen1,
+    sSpriteAnim_Seen2,
+    sSpriteAnim_Caught1,
+    sSpriteAnim_Caught2,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_InterfaceText =
+{
+    .tileTag = TAG_DEX_INTERFACE2,
+    .paletteTag = TAG_DEX_INTERFACE_PAL,
+    .oam = &sOamData_InterfaceText,
+    .anims = sSpriteAnimTable_InterfaceText,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCB_Interface,
+};
+
+static const struct OamData sOamData_InterfaceDigit =
+{
+    .y = 160,
+    .affineMode = ST_OAM_AFFINE_OFF,
+    .objMode = ST_OAM_OBJ_NORMAL,
+    .bpp = ST_OAM_4BPP,
+    .shape = SPRITE_SHAPE(8x16),
+    .size = SPRITE_SIZE(8x16),
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit0[] =
+{
+    ANIMCMD_FRAME(0, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit1[] =
+{
+    ANIMCMD_FRAME(2, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit2[] =
+{
+    ANIMCMD_FRAME(4, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit3[] =
+{
+    ANIMCMD_FRAME(6, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit4[] =
+{
+    ANIMCMD_FRAME(8, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit5[] =
+{
+    ANIMCMD_FRAME(10, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit6[] =
+{
+    ANIMCMD_FRAME(12, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit7[] =
+{
+    ANIMCMD_FRAME(14, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit8[] =
+{
+    ANIMCMD_FRAME(16, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd sSpriteAnim_InterfaceDigit9[] =
+{
+    ANIMCMD_FRAME(18, 30),
+    ANIMCMD_END
+};
+
+static const union AnimCmd *const sSpriteAnimTable_InterfaceDigit[] =
+{
+    sSpriteAnim_InterfaceDigit0,
+    sSpriteAnim_InterfaceDigit1,
+    sSpriteAnim_InterfaceDigit2,
+    sSpriteAnim_InterfaceDigit3,
+    sSpriteAnim_InterfaceDigit4,
+    sSpriteAnim_InterfaceDigit5,
+    sSpriteAnim_InterfaceDigit6,
+    sSpriteAnim_InterfaceDigit7,
+    sSpriteAnim_InterfaceDigit8,
+    sSpriteAnim_InterfaceDigit9
+};
+
+static const struct SpriteTemplate sInterfaceDigitSpriteTemplate =
+{
+    .tileTag = TAG_DEX_INTERFACE3,
+    .paletteTag = TAG_DEX_INTERFACE_PAL,
+    .oam = &sOamData_InterfaceDigit,
+    .anims = sSpriteAnimTable_InterfaceDigit,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCB_Interface,
+};
+
+#define TAG_STAT_BAR 4097
+
 static const struct OamData sOamData_StatBar =
 {
     .y = 160,
     .affineMode = ST_OAM_AFFINE_OFF,
     .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = 0,
     .bpp = ST_OAM_4BPP,
     .shape = SPRITE_SHAPE(64x64),
-    .x = 0,
-    .matrixNum = 0,
     .size = SPRITE_SIZE(64x64),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0
 };
-
-#define TAG_STAT_BAR 4097
 
 static const struct SpriteTemplate sStatBarSpriteTemplate =
 {
@@ -1412,7 +1278,7 @@ static const struct SpriteTemplate sStatBarSpriteTemplate =
     .anims = gDummySpriteAnimTable,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
+    .callback = SpriteCB_StatBars,
 };
 
 enum
@@ -1648,7 +1514,6 @@ static void Task_HandlePokedexInput(u8 taskId)
             gSprites[sPokedexView->selectedMonSpriteId].callback = SpriteCB_MoveMonForInfoScreen;
             gTasks[taskId].func = Task_OpenInfoScreenAfterMonMovement;
             PlaySE(SE_PIN);
-            TryDestroyStatBars();
             FreeWindowAndBgBuffers();
         }
         else if (gMain.newKeys & START_BUTTON)
@@ -1818,7 +1683,6 @@ static void Task_ClosePokedex(u8 taskId)
             gSaveBlock2Ptr->pokedex.mode = DEX_MODE_HOENN;
         gSaveBlock2Ptr->pokedex.order = sPokedexView->dexOrder;
         ClearMonSprites();
-        TryDestroyStatBars();
         FreeWindowAndBgBuffers();
         DestroyTask(taskId);
         SetMainCallback2(CB2_ReturnToFieldWithOpenMenu);
@@ -1996,7 +1860,6 @@ static void Task_ReturnToPokedexFromSearchResults(u8 taskId)
         sPokedexView->dexOrder = sPokedexView->dexOrderBackup;
         gTasks[taskId].func = Task_OpenPokedexMainPage;
         ClearMonSprites();
-        TryDestroyStatBars();
         FreeWindowAndBgBuffers();
     }
 }
@@ -2059,7 +1922,10 @@ static bool8 LoadPokedexListPage(u8 page)
         ResetSpriteData();
         FreeAllSpritePalettes();
         gReservedSpritePaletteCount = 8;
+        LoadInterfaceSheets();
+        LoadSpritePalette(&sInterfaceSpritePalette);
         LoadSpritePalette(&sStatBarSpritePal);
+        CreateInterfaceSprites(page);
         gMain.state++;
         break;
     case 2:
@@ -2741,7 +2607,95 @@ static u32 CreatePokedexMonSprite(u16 num, s16 x, s16 y)
     return 0xFFFF;
 }
 
-#define sIsDownArrow data[1]
+static void LoadInterfaceSheets(void)
+{
+    u32 i;
+    for (i = 0; i < ARRAY_COUNT(sInterfaceSpriteSheets); i++)
+        LoadCompressedSpriteSheet(&sInterfaceSpriteSheets[i]);
+}
+
+static void CreateInterfaceDigits(s32 x, s32 y, u32 count)
+{
+    // value - 100s
+    bool32 drawNextDigit = FALSE;
+    u32 spriteId = CreateSprite(&sInterfaceDigitSpriteTemplate, x, y, 1);
+    u32 digitNum = count / 100;
+
+    StartSpriteAnim(&gSprites[spriteId], digitNum);
+    if (digitNum != 0)
+        drawNextDigit = TRUE;
+    else
+        gSprites[spriteId].invisible = TRUE;
+
+    // value - 10s
+    spriteId = CreateSprite(&sInterfaceDigitSpriteTemplate, x + 7, y, 1);
+    digitNum = (count % 100) / 10;
+    if (digitNum != 0 || drawNextDigit)
+        StartSpriteAnim(&gSprites[spriteId], digitNum);
+    else
+        gSprites[spriteId].invisible = TRUE;
+
+    //  value - 1s
+    spriteId = CreateSprite(&sInterfaceDigitSpriteTemplate, x + 14, y, 1);
+    digitNum = (count % 100) % 10;
+    StartSpriteAnim(&gSprites[spriteId], digitNum);
+}
+
+static void CreateInterfaceSprites(u8 page)
+{
+    s32 x, y;
+    // A button
+    u32 spriteId = CreateSprite(&sSpriteTemplate_InterfaceIcon, 12, 153, 0);
+
+    // B button
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceIcon, 62, 153, 0);
+    StartSpriteAnim(&gSprites[spriteId], 1);
+
+    // Scroll Bar
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceIcon, 236, 16, 0);
+    gSprites[spriteId].callback = SpriteCB_Scrollbar;
+    gSprites[spriteId].oam.priority = 1;
+    StartSpriteAnim(&gSprites[spriteId], 3);
+
+    // Scroll Arrows
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceIcon, 184, 1, 0);
+    gSprites[spriteId].callback = SpriteCB_ScrollArrow;
+    StartSpriteAnim(&gSprites[spriteId], 2);
+
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceIcon, 184, 160, 0);
+    gSprites[spriteId].callback = SpriteCB_ScrollArrow;
+    gSprites[spriteId].vFlip = TRUE;
+    StartSpriteAnim(&gSprites[spriteId], 2);
+
+    // 'Data' text
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceText, 32, 150, 0);
+
+    // 'Go Back' text
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceText, 82, 150, 0);
+    StartSpriteAnim(&gSprites[spriteId], 1);
+
+    // 'Seen' text
+    x = 18, y = 36;
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceText, x, y, 0);
+    StartSpriteAnim(&gSprites[spriteId], 2);
+
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceText, x + 32, y, 0);
+    StartSpriteAnim(&gSprites[spriteId], 3);
+
+    // 'Own' text
+    y += 22;
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceText, x, y, 0);
+    StartSpriteAnim(&gSprites[spriteId], 4);
+
+    spriteId = CreateSprite(&sSpriteTemplate_InterfaceText, x + 32, y, 0);
+    StartSpriteAnim(&gSprites[spriteId], 5);
+
+    // Seen digits
+    CreateInterfaceDigits(14, 49, GetHoennPokedexCount(FLAG_GET_SEEN));
+
+    // Own digits
+    CreateInterfaceDigits(14, 69, GetHoennPokedexCount(FLAG_GET_CAUGHT));
+}
 
 #define PIXEL_COORDS_TO_OFFSET(x, y)(			\
 /*Add tiles by X*/								\
@@ -2869,7 +2823,6 @@ static void CreateStatBars(struct PokedexListItem *dexMon)
         }
 
         LoadSpriteSheet(&sheet);
-        sPokedexView->statBarsSpriteId = CreateSpriteAtEnd(&sStatBarSpriteTemplate, 36, 80, 0);
         free(gfx);
     }
     else if (dexMon->seen) // Just HP/ATK/DEF
@@ -2877,19 +2830,85 @@ static void CreateStatBars(struct PokedexListItem *dexMon)
         static const struct SpriteSheet sheet = {sStatBarsGfx, 64 * 64, TAG_STAT_BAR};
 
         LoadSpriteSheet(&sheet);
-        sPokedexView->statBarsSpriteId = CreateSpriteAtEnd(&sStatBarSpriteTemplate, 36, 80, 0);
+    }
+    else // neither seen nor owned
+    {
+        return;
+    }
+    sPokedexView->statBarsSpriteId = CreateSpriteAtEnd(&sStatBarSpriteTemplate, 36, 107, 0);
+}
+
+// Hack to destroy sprites when a pokemon data is being loaded in
+static bool32 IsMonInfoBeingLoaded(void)
+{
+    return (gSprites[sPokedexView->selectedMonSpriteId].callback == SpriteCB_MoveMonForInfoScreen);
+}
+
+static void SpriteCB_Interface(struct Sprite *sprite)
+{
+    if (IsMonInfoBeingLoaded())
+        sprite->invisible = TRUE;
+    if (sPokedexView->currentPage != PAGE_MAIN)
+        DestroySprite(sprite);
+}
+
+static void SpriteCB_StatBars(struct Sprite *sprite)
+{
+    if (IsMonInfoBeingLoaded())
+        sprite->invisible = TRUE;
+    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
+    {
+        FreeSpriteTilesByTag(TAG_STAT_BAR);
+        DestroySprite(&gSprites[sPokedexView->statBarsSpriteId]);
+    }
+}
+
+static void SpriteCB_Scrollbar(struct Sprite *sprite)
+{
+    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
+        DestroySprite(sprite);
+    else
+        sprite->pos2.y = sPokedexView->selectedPokemon * 120 / (sPokedexView->pokemonListCount - 1);
+}
+
+static void SpriteCB_ScrollArrow(struct Sprite *sprite)
+{
+    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
+    {
+        DestroySprite(sprite);
+    }
+    else
+    {
+        u8 r0;
+
+        if (sprite->vFlip)
+        {
+            if (sPokedexView->selectedPokemon == sPokedexView->pokemonListCount - 1)
+                sprite->invisible = TRUE;
+            else
+                sprite->invisible = FALSE;
+            r0 = sprite->data[2];
+        }
+        else
+        {
+            if (sPokedexView->selectedPokemon == 0)
+                sprite->invisible = TRUE;
+            else
+                sprite->invisible = FALSE;
+            r0 = sprite->data[2] - 128;
+        }
+        sprite->pos2.y = gSineTable[r0] / 64;
+        sprite->data[2] = sprite->data[2] + 8;
+        if (sPokedexView->menuIsOpen == FALSE && sPokedexView->menuY == 0 && sprite->invisible == FALSE)
+            sprite->invisible = FALSE;
+        else
+            sprite->invisible = TRUE;
     }
 }
 
 static void SpriteCB_EndMoveMonForInfoScreen(struct Sprite *sprite)
 {
     // Once mon is done moving there's nothing left to do
-}
-
-static void SpriteCB_SeenOwnInfo(struct Sprite *sprite)
-{
-    if (sPokedexView->currentPage != PAGE_MAIN)
-        DestroySprite(sprite);
 }
 
 void SpriteCB_MoveMonForInfoScreen(struct Sprite *sprite)
@@ -2950,104 +2969,6 @@ static void SpriteCB_PokedexListMonSprite(struct Sprite *sprite)
         {
             FreeAndDestroyMonPicSprite(sPokedexView->monSpriteIds[monId]);
             sPokedexView->monSpriteIds[monId] = 0xFFFF;
-        }
-    }
-}
-
-static void SpriteCB_Scrollbar(struct Sprite *sprite)
-{
-    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
-        DestroySprite(sprite);
-    else
-        sprite->pos2.y = sPokedexView->selectedPokemon * 120 / (sPokedexView->pokemonListCount - 1);
-}
-
-static void SpriteCB_ScrollArrow(struct Sprite *sprite)
-{
-    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
-    {
-        DestroySprite(sprite);
-    }
-    else
-    {
-        u8 r0;
-
-        if (sprite->sIsDownArrow)
-        {
-            if (sPokedexView->selectedPokemon == sPokedexView->pokemonListCount - 1)
-                sprite->invisible = TRUE;
-            else
-                sprite->invisible = FALSE;
-            r0 = sprite->data[2];
-        }
-        else
-        {
-            if (sPokedexView->selectedPokemon == 0)
-                sprite->invisible = TRUE;
-            else
-                sprite->invisible = FALSE;
-            r0 = sprite->data[2] - 128;
-        }
-        sprite->pos2.y = gSineTable[r0] / 64;
-        sprite->data[2] = sprite->data[2] + 8;
-        if (sPokedexView->menuIsOpen == FALSE && sPokedexView->menuY == 0 && sprite->invisible == FALSE)
-            sprite->invisible = FALSE;
-        else
-            sprite->invisible = TRUE;
-    }
-}
-
-static void SpriteCB_DexListInterfaceText(struct Sprite *sprite)
-{
-    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
-        DestroySprite(sprite);
-}
-
-static void SpriteCB_RotatingPokeBall(struct Sprite *sprite)
-{
-    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
-    {
-        DestroySprite(sprite);
-    }
-    else
-    {
-        u8 val;
-        s16 r3;
-        s16 r0;
-
-        val = sPokedexView->pokeBallRotation + sprite->data[1];
-        r3 = gSineTable[val];
-        r0 = gSineTable[val + 64];
-        SetOamMatrix(sprite->data[0], r0, r3, -r3, r0);
-
-        val = sPokedexView->pokeBallRotation + (sprite->data[1] + 64);
-        r3 = gSineTable[val];
-        r0 = gSineTable[val + 64];
-        sprite->pos2.x = r0 * 40 / 256;
-        sprite->pos2.y = r3 * 40 / 256;
-    }
-}
-
-static void SpriteCB_DexListStartMenuCursor(struct Sprite *sprite)
-{
-    if (sPokedexView->currentPage != PAGE_MAIN && sPokedexView->currentPage != PAGE_SEARCH_RESULTS)
-    {
-        DestroySprite(sprite);
-    }
-    else
-    {
-        u16 r1 = sPokedexView->currentPage == PAGE_MAIN ? 80 : 96;
-
-        if (sPokedexView->menuIsOpen && sPokedexView->menuY == r1)
-        {
-            sprite->invisible = FALSE;
-            sprite->pos2.y = sPokedexView->menuCursorPos * 16;
-            sprite->pos2.x = gSineTable[(u8)sprite->data[2]] / 64;
-            sprite->data[2] += 8;
-        }
-        else
-        {
-            sprite->invisible = TRUE;
         }
     }
 }
@@ -4726,6 +4647,8 @@ static void Task_LoadSearchMenu(u8 taskId)
         }
         break;
     case 1:
+        LoadInterfaceSheets();
+        LoadSpritePalette(&sInterfaceSpritePalette);
         LoadSpritePalette(&sStatBarSpritePal);
         CreateSearchParameterScrollArrows(taskId);
         for (i = 0; i < NUM_TASK_DATA; i++)
@@ -5514,7 +5437,7 @@ static void SpriteCB_SearchParameterScrollArrow(struct Sprite *sprite)
     {
         u8 val;
 
-        if (sprite->sIsDownArrow)
+        if (sprite->vFlip)
         {
             if (SearchParamCantScrollDown(sprite->sTaskId))
                 sprite->invisible = TRUE;
@@ -5528,7 +5451,7 @@ static void SpriteCB_SearchParameterScrollArrow(struct Sprite *sprite)
             else
                 sprite->invisible = FALSE;
         }
-        val = sprite->data[2] + sprite->sIsDownArrow * 128;
+        val = sprite->data[2] + sprite->vFlip * 128;
         sprite->pos2.y = gSineTable[val] / 128;
         sprite->data[2] += 8;
     }
@@ -5544,7 +5467,6 @@ static void CreateSearchParameterScrollArrows(u8 taskId)
 }
 
 #undef sTaskId
-#undef sIsDownArrow
 
 static void EraseAndPrintSearchTextBox(const u8* str)
 {

@@ -3282,7 +3282,6 @@ extern const u32 gBattleTerrainPalette_StadiumDrake[];
 extern const u32 gBattleTerrainPalette_StadiumWallace[];
 
 // pokedex
-extern const u32 gPokedexInterface_Gfx[];
 extern const u16 gPokedexBgHoenn_Pal[];
 extern const u32 gPokedexMenu_Gfx[];
 extern const u8 gPokedexList_Tilemap[];
